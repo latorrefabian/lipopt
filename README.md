@@ -7,6 +7,8 @@ Lipschitz constant estimation of Neural Networks via sparse polynomial optimizat
 Fabian Latorre, Paul Rolland, Volkan Cevher.
 ICLR 2020
 
+link: https://openreview.net/forum?id=rJe4_xSFDB
+
 the original code can be found in the folder `old_code`, while at the top
 level you can find a new (in progress) version with faster and more efficient
 implementation.
