@@ -1,4 +1,3 @@
-import pdb
 import numpy as np
 import sympy as sp
 import torch
@@ -380,7 +379,6 @@ class KrivineOptimizer:
                 pass
             else:
                 connected_vars = [x for x in connected_vars]
-            # pdb.set_trace()
             if len(connected_vars) >= deg-1:
                 x_conn = cls._alpha_beta_combinations(connected_vars, deg-1)
                 x_list += [(np.append([v],i), np.append([[1,0]], np.array(j), axis=0)) for (i,j) in x_conn] \
@@ -511,7 +509,7 @@ class FullyConnected:
         try:
             return self._grad_poly
         except AttributeError:
-            self._grad_poly = self._compute_grad_poly()
+            self._grad_poly = self._fixed_compute_grad_poly()
         return self._grad_poly
         
     @property
@@ -519,12 +517,17 @@ class FullyConnected:
         try:
             return self._fixed_grad_poly
         except AttributeError:
+            # correct version of norm-gradient polynomial
             self._fixed_grad_poly = self._fixed_compute_grad_poly()
         return self._fixed_grad_poly
 
     def _compute_grad_poly(self):
         r"""
-        Compute the symbolic gradient polynomial of the network
+        Compute the symbolic gradient polynomial of the network. Note that this
+        was the original method used in the research paper, however there is a
+        bug that has been corrected in the method `_fixed_compute_grad_poly` and
+        should be used in new comparisons. We expect the difference between the
+        correct and original version to be minor.
         """
         var_indices = [range(n_i) for n_i in self.layer_sizes]
         total = 1.
