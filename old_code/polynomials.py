@@ -184,6 +184,44 @@ class KrivineOptimizer:
             raise NotImplementedError
 
     @classmethod
+    def new_maximize_serial(
+            cls, f, g, lb, ub, deg=2, start_indices=None, layer_config=None,
+            decomp='full', sparsity=-1, weights=None, solver='gurobi',
+            name='', reload=False, use_filename=""):
+        """
+        Maximize the polynomial f subject to the constraint lb <= g <= ub
+        using a level of the LP hierarchy
+
+        Args:
+            f (dictionary): dictionary of coefficients of the polynomial
+                to be maximized. Keys are monomials (sympy) and values
+                are float.
+            g (list): list of sympy expressions corresponding to the
+                constraints lb <= g_i(x) <= ub
+            lb (list): list of lower bounds for the variables
+            ub (list): list of upper bounds for the variables
+            variables (iterable): variables (sympy) of the polynomial
+            deg (int): degree of the LP relaxation
+            solver (str): name of solver to use.
+            certificate (str): name of certificate to use
+            n_jobs (int): number of workers for parallel execution
+            name (str): id for the problem
+        """
+        G_g_0 = g - lb
+        G_g_1 = ub - g
+        G_g = np.column_stack((G_g_0, G_g_1))
+
+        certificate, n = cls._new_full_certificate_serial(
+                G_g, deg=deg, start_indices=start_indices, decomp=decomp,
+                weights=weights)
+        d = dict(certificate)
+
+        if solver == 'gurobi':
+            return cls._maximize_gurobi(f, d, n, name=name)
+        else:
+            raise NotImplementedError
+
+    @classmethod
     def _maximize_gurobi(cls, f, certificate, n, name=''):
         import gurobipy as gp
         m = gp.Model(name + ' Krivine-LP')
@@ -233,7 +271,7 @@ class KrivineOptimizer:
         return coeffs
 
     @classmethod
-    def _new_h_poly(cls, idx, coefs):
+    def _new_h_poly(cls, idx, coefs, G_g):
         """
         Polynomials composing the certificate
 
@@ -467,6 +505,37 @@ class KrivineOptimizer:
             raise("Unknown decomposition")
         # print("Number of LP constraints: {}".format(len(iter_)))
         result = multiproc(fn(idx, coefs) for idx, coefs in iter_)
+
+        for i, h_poly in enumerate(result):
+            for k, v in h_poly.items():
+                certificate[k][0].append(i)
+                certificate[k][1].append(v)
+        return certificate, len(result)
+
+    @classmethod
+    def _new_full_certificate_serial(
+            cls, g, deg=2, start_indices=None, decomp='full',
+            weights=None):
+        certificate = defaultdict(lambda: [[], []])
+        if decomp == 'full':
+            n_hpoly = int(comb(2 * len(g) + deg, deg))
+            iter_ = tqdm(
+                cls._alpha_beta(len(g), deg), total=n_hpoly, desc='h_poly')
+        elif decomp == 'two layers sparse':
+            iter_ = tqdm(
+                          #cls._alpha_beta_two_layers(len(g), start_indices, deg),
+                         cls._alpha_beta_two_layers_sparse(len(g), start_indices, deg, weights),
+                          desc='h_poly')
+        elif decomp == 'multi layers':
+            iter_ = tqdm(
+                         #cls._alpha_beta_two_layers(len(g), start_indices, deg),
+                         #cls._alpha_beta_two_layers_sparse(len(g), start_indices, deg, weights),
+                    cls._alpha_beta_multi_layers_sparse(len(g), start_indices, deg, weights),
+                    desc='h_poly')
+        else:
+            raise("Unknown decomposition")
+        # print("Number of LP constraints: {}".format(len(iter_)))
+        result = [cls._new_h_poly(idx=idx, coefs=coefs, G_g=g) for idx, coefs in iter_]
 
         for i, h_poly in enumerate(result):
             for k, v in h_poly.items():

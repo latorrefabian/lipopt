@@ -40,11 +40,11 @@ def compare_bounds(layer_configs):
             f = fc.grad_poly
             g, lb, ub = fc.new_krivine_constr(p=1, lb=lb, ub=ub)
             start = timer()
-            m = po.KrivineOptimizer.new_maximize(
+            m = po.KrivineOptimizer.new_maximize_serial(
                     f, g, lb=lb, ub=ub, deg=len(weights),
                     start_indices=fc.start_indices,
                     layer_config=layer_config,
-                    solver='gurobi', n_jobs=-1, name='')
+                    solver='gurobi', name='')
             end = timer()
             print('time elapsed: ', end - start)
             # m = po.KrivineOptimizer.maximize(
